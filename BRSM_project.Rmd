@@ -1,0 +1,352 @@
+---
+title: "brsm_proj_s1"
+output: pdf_document
+date: "2023-04-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+
+
+
+
+library(readxl)
+
+data_s1_t1 = read.csv("./CovidDataTime1.csv")
+data_s1_t2 = read.csv("./CovidDataTime2.csv")
+
+# View(data_s1_t1)
+colnames(data_s1_t1)
+colnames(data_s1_t1)[20] = "SatisfactionInsurance"
+# data = subset(data, select = -c(1,3,6,21))
+
+
+library(corrplot)
+
+
+# View(data_s1_t1)
+
+corrplot(cor(data_s1_t1))
+
+col_names = colnames(data_s1_t1)
+for( i in col_names)
+{
+  # print(class(data_s1_t1[[i]]))
+  # print(unique(data_s1_t1[[i]]))
+  cat(i,class(data_s1_t1[[i]]), unique(data_s1_t1[[i]]),"\n")
+  
+}
+
+
+
+```
+#Normality testing
+```{r}
+
+data_s1_t1[] = lapply(data_s1_t1[], as.numeric)
+
+data_s1_t1[c(3,6,19,21)] = lapply(data_s1_t1[c(3,6,19,21)], as.factor)
+# for( i in col_names)
+# {
+#   print(shapiro.test(data_s1_t1[[i]]))
+# }
+
+```
+
+
+```{r}
+# shapiro.test(data_s1_t1$)
+
+# install.packages("ggpubr", dependencies = TRUE)
+library(ggpubr)
+ggqqplot(log10(180 - data_s1_t1$Anxiety_factor_STAI))
+
+
+data_s1_t1$trans_Anxiety_factor_STAI = log10(180 - data_s1_t1$Anxiety_factor_STAI) #on doing this it is normalized by both graph and the official ways like shapiro wilk
+
+res_aov <- aov(trans_Anxiety_factor_STAI ~ Gender.1.Male,
+  data = data_s1_t1
+)
+
+# res_aov <- kruskal.test(COVID19Consumption ~ Gender.1.Male,
+#   data = data_s1_t1
+# )
+# 
+# kruskal.test(COVID19Consumption ~ Gender.1.Male,
+#   data = data_s1_t1
+# )
+
+
+par(mfrow = c(1, 2)) # combine plots
+
+# histogram
+hist(res_aov$residuals, main = "Residuals")
+
+# QQ-plot
+library(car)
+qqPlot(res_aov$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+
+shapiro.test(res_aov$residuals)
+```
+
+Since concerns of normality is not much alarming when samples >50, we avoid the hassle of transformations as it deteriorates the result and analysis of further tests.
+
+"
+For analyses like the F or t family of tests (i.e., independent and dependent sample t-tests, ANOVAs, MANOVAs, and regressions), violations of normality are not usually a death sentence for validity. As long as the sample size exceeds 30 (even better if it is greater than 50), there is not usually too much of an impact to validity from non-normal data; something that Stevens stressed in his 2016 publication of Applied Multivariate Statistics for the Social Sciences.
+"
+
+"
+ANOVA is quite robust to small deviations from normality. This means that it is not an issue (from the perspective of the interpretation of the ANOVA results) if a small number of points deviates slightly from the normality,
+"
+
+
+"
+As pointed out by a reader (see comments at the very end of the article), the normality assumption can also be tested on the “raw” data (i.e., the observations) instead of the residuals. However, if you test the normality assumption on the raw data, it must be tested for each group separately as the ANOVA requires normality in each group.
+
+Testing normality on all residuals or on the observations per group is equivalent, and will give similar results. Indeed, saying “The distribution of Y within each group is normally distributed” is the same as saying “The residuals are normally distributed”.
+"
+
+
+#Now Homogeneity
+```{r}
+# Boxplot
+boxplot(trans_Anxiety_factor_STAI ~ Gender.1.Male,
+  data = data_s1_t1
+)
+
+leveneTest( trans_Anxiety_factor_STAI~ Gender.1.Male,
+  data = data_s1_t1
+)
+
+
+par(mfrow = c(1, 2)) # combine plots
+
+# 1. Homogeneity of variances
+plot(res_aov, which = 3)
+
+# 2. Normality
+plot(res_aov, which = 2)
+
+```
+Both from  boxplots and levene test, homogeneity is confirmed for across Gender
+
+This point(outliers) is, however, not seen as a significant outlier so we can assume that the assumption of no significant outliers is met.
+
+
+```{r}
+
+res_aov <- aov(trans_Anxiety_factor_STAI ~ PoliticalOrientation,
+  data = data_s1_t1
+)
+
+par(mfrow = c(1, 2)) # combine plots
+
+# histogram
+hist(res_aov$residuals)
+
+# QQ-plot
+library(car)
+qqPlot(res_aov$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+summary(res_aov)
+# install.packages("remotes")
+# remotes::install_github("easystats/report") # You only need to do that once
+library("report") # Load the package every time you start R
+
+report(res_aov)
+
+```
+
+NULL Hypo for ANOVA: No difference in group means
+Ha: At least one group differs significantly from overall mean of dependent variable
+
+Thus on doing one-way ANOVA for Gender, Politics, Ethnicity and Dependents, we see:
+1. Gender: We reject null. Therefore the two genders behave differently for anxiety scores 8e-6
+2. Ethnicity: Accept null hypo 0.393
+3. Political: Reject 4.5e-5
+4. Dependents: Reject 0.01
+
+As told earlier, transforming the data to normalize and fit better isnt really needed. gave the same overall results before and after transformation with slight variation. Therefore no need for kruskal wallis test.
+
+Also since homogeneity was confirmed, no need of Welch Anova.
+
+
+```{r}
+install.packages("multcomp")
+library(multcomp)
+
+# Tukey HSD test:
+post_test <- glht(res_aov,
+  linfct = mcp(PoliticalOrientation = "Tukey")
+)
+
+summary(post_test)
+
+```
+Since only 2 levels in IVs, no need for post hoc, it will give the same value of p value since only comparison there. (level x vs level y)
+
+
+```{r}
+fact_model = aov(trans_Anxiety_factor_STAI ~ Gender.1.Male + PoliticalOrientation + Ethnicity + Dependents, data = data_s1_t1)
+summary(fact_model)
+
+report(fact_model)
+
+TukeyHSD(fact_model)
+
+inter_model = aov(trans_Anxiety_factor_STAI ~ Gender.1.Male * PoliticalOrientation * Ethnicity * Dependents, data = data_s1_t1)
+
+summary(inter_model)
+
+```
+
+
+```{r}
+ancova_model <- aov(trans_Anxiety_factor_STAI ~ Gender.1.Male + Education + HouseholdIncome, data = data_s1_t1)
+Anova(ancova_model, type="III")
+
+
+
+```
+
+From this result, we can easily conclude that while controlling grade variable still technique variable is statistically significant. It indicates that the technique variable has significantly contributed to the model.
+
+
+https://towardsdatascience.com/doing-and-reporting-your-first-anova-and-ancova-in-r-1d820940f2ef 
+
+
+
+```{r}
+
+data_s2a = read.csv("./Study2aLinearRegressionData.csv")
+data_s2b = read.csv("./Study2bLinearRegressionData.csv")
+
+
+data_s2a[] = lapply(data_s2a[], as.numeric)
+data_s2b[-1] = lapply(data_s2b[-1], as.numeric)
+
+data_s2a[2] = lapply(data_s2a[2], as.factor)
+data_s2b[c(2,3)] = lapply(data_s2b[c(2,3)], as.factor)
+
+
+```
+
+
+```{r}
+
+
+
+
+
+
+res_aov <- aov(Trait.Anxiety ~ Gender,
+  data = data_s2a
+)
+
+par(mfrow = c(1, 2)) # combine plots
+
+# histogram
+hist(res_aov$residuals)
+
+# QQ-plot
+library(car)
+qqPlot(res_aov$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+summary(res_aov)
+
+shapiro.test(res_aov$residuals)
+# install.packages("remotes")
+# remotes::install_github("easystats/report") # You only need to do that once
+library("report") # Load the package every time you start R
+
+report(res_aov)
+
+
+
+ggplot(data_s2a) +
+  aes(x = Gender, y = vWTP) +
+  geom_boxplot(fill = "#0c4c8a") +
+  theme_minimal()
+
+hist(subset(data_s2a, Gender == 1)$vWTP,
+  main = "Grades for girls",
+  xlab = "Grades"
+)
+
+shapiro.test(subset(data_s2a, Gender == 1)$vWTP)
+
+
+test <- wilcox.test(data_s2a$vWTP ~ data_s2a$Gender)
+test
+
+
+```
+NULL Hypo for ANOVA: No difference in group means
+Ha: At least one group differs significantly from overall mean of dependent variable
+
+Thus on doing one-way ANOVA for Gender, Politics, Ethnicity and Dependents, we see:
+1. Gender: We accept null. Therefore the two genders behave differently for anxiety scores 8e-6
+
+But vWTP is not normally distributed. proved by shapiro test. Thus we used Kruskal Wallis Test/Mann Whitney. 
+
+it shows p value = 0.678. Therefore vWTP is not much different between male/female
+
+
+```{r}
+
+
+
+
+```
+
+```{r}
+data_s2b$Gender<- factor(data_s2b$Gender)
+# is.factor(data$Gender)
+
+data_s2b$Group<- factor(data_s2b$Group)
+# is.factor(data$Group)
+
+fit.full<-lm(WTPsignesMarketChange~STAI_CHANGE+Group+ Age + Gender,data=data_s2b)
+summary(fit.full)
+
+
+fit.fullabs<-lm(WTPabsMarketChange~STAI_CHANGE+Group+ Age + Gender,data=data_s2b)
+summary(fit.fullabs)
+
+
+fit.fullabs<-lm(vWTP~STAI_CHANGE+Group+ Age + Gender,data=data_s2b)
+summary(fit.fullabs)
+
+
+```
+
+
+
+
